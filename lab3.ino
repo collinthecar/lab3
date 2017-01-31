@@ -288,24 +288,26 @@ void loop()
        // set motor speeds
         ui_Left_Motor_Speed = constrain(ui_Motors_Speed + ui_Left_Motor_Offset, 1600, 2100);
         ui_Right_Motor_Speed = constrain(ui_Motors_Speed + ui_Right_Motor_Offset, 1600, 2100);
-        ui_Left_Motor_Speed-=300;
-        ui_Right_Motor_Speed-=300;
+       
        /***************************************************************************************
          Add line tracking code here. 
          Adjust motor speed according to information from line tracking sensors and 
          possibly encoder counts.
        /*************************************************************************************/
-
-        if (ui_Left_Line_Tracker_Data<=(ui_Left_Line_Tracker_Light+ci_Line_Tracker_Tolerance)){
+        if ((ui_Left_Line_Tracker_Data>(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data>(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data>(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
+          ui_Left_Motor_Speed=ci_Left_Motor_Stop;
+          ui_Right_Motor_Speed=ci_Right_Motor_Stop;
+        }
+        else if (ui_Left_Line_Tracker_Data<(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)){
           //this means left tracker is on top of line
-          ui_Left_Motor_Speed-=correctionRate*ui_Left_Motor_Speed;
-          ui_Right_Motor_Speed+=correctionRate*ui_Right_Motor_Speed;
+          ui_Left_Motor_Speed-=100;
+          ui_Right_Motor_Speed+=100;
         }
-        else if (ui_Right_Line_Tracker_Data<=(ui_Right_Line_Tracker_Light+ci_Line_Tracker_Tolerance)){
-          ui_Left_Motor_Speed+=correctionRate*ui_Left_Motor_Speed;
-          ui_Right_Motor_Speed-=correctionRate*ui_Right_Motor_Speed;
+        else if (ui_Right_Line_Tracker_Data<(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)){
+          ui_Left_Motor_Speed+=100;
+          ui_Right_Motor_Speed-=100;
         }
-        else if (ui_Middle_Line_Tracker_Data<=(ui_Middle_Line_Tracker_Light+ci_Line_Tracker_Tolerance)){
+        else if (ui_Middle_Line_Tracker_Data<(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)){
           ui_Left_Motor_Speed=ui_Motors_Speed;
           ui_Right_Motor_Speed=ui_Motors_Speed;
         }
