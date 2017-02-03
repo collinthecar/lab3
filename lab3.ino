@@ -37,7 +37,7 @@ I2CEncoder encoder_LeftMotor;
 
 boolean bt_Motors_Enabled = true;
 
-int correctionRate=0.05;//how much the motor responds to being off track
+
 
 //port pin constants
 const int ci_Ultrasonic_Ping = 2;   //input plug
@@ -142,8 +142,7 @@ unsigned int  ui_Mode_Indicator[6] = {
 unsigned int  ui_Mode_Indicator_Index = 0;
 
 //display Bits 0,1,2,3, 4, 5, 6,  7,  8,  9,  10,  11,  12,  13,   14,   15
-int  iArray[16] = {
-  1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,65536};
+int  iArray[16] = {1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,65536};
 int  iArrayIndex = 0;
 
 boolean bt_Heartbeat = true;
@@ -295,7 +294,19 @@ void loop()
          Adjust motor speed according to information from line tracking sensors and 
          possibly encoder counts.
        /*************************************************************************************/
-        if ((ui_Left_Line_Tracker_Data>(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data>(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data>(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
+        if ((ui_Left_Line_Tracker_Data<(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data<(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data<(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
+          //case where the car is at threat level: triple 3 yellow
+          ui_Left_Motor_Speed=ci_Left_Motor_Stop;
+          ui_Right_Motor_Speed=ci_Right_Motor_Stop;
+          int startingPos=encoder_RightMotor.getPosition();
+          int currentPos=startingPos;
+          servo_RightMotor.writeMicroseconds(ui_Motors_Speed);
+          while (currentPos<(startingPos+1.3551)){//will keep updating the position of right motor until it the bot has turned 90 degrees. see documentation for 1.3551 determination
+            currentPos=encoder_RightMotor.getPosition();
+          }
+        }
+        else if ((ui_Left_Line_Tracker_Data>(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data>(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data>(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
+         //this is the case where the the bot has veered off course, now none of the sensors are detecting the line
           ui_Left_Motor_Speed=ci_Left_Motor_Stop;
           ui_Right_Motor_Speed=ci_Right_Motor_Stop;
         }
@@ -312,6 +323,7 @@ void loop()
           ui_Left_Motor_Speed=ui_Motors_Speed;
           ui_Right_Motor_Speed=ui_Motors_Speed;
         }
+        
         
         if(bt_Motors_Enabled)
         {
