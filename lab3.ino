@@ -36,7 +36,7 @@ I2CEncoder encoder_LeftMotor;
 #define DEBUG_MOTOR_CALIBRATION
 
 boolean bt_Motors_Enabled = true;
-
+boolean lineFollowing=true;
 
 
 //port pin constants
@@ -296,19 +296,30 @@ void loop()
        /*************************************************************************************/
         if ((ui_Left_Line_Tracker_Data<(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data<(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data<(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
           //case where the car is at threat level: triple 3 yellow
+          lineFollowing=false;//stop following the yellow line
           ui_Left_Motor_Speed=ci_Left_Motor_Stop;
           ui_Right_Motor_Speed=ci_Right_Motor_Stop;
           int startingPos=encoder_RightMotor.getPosition();
           int currentPos=startingPos;
+          servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
           servo_RightMotor.writeMicroseconds(ui_Motors_Speed);
           while (currentPos<(startingPos+1.3551)){//will keep updating the position of right motor until it the bot has turned 90 degrees. see documentation for 1.3551 determination
             currentPos=encoder_RightMotor.getPosition();
           }
         }
-        else if ((ui_Left_Line_Tracker_Data>(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data>(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data>(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
+        if (lineFollowing==true){
+        if ((ui_Left_Line_Tracker_Data>(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data>(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data>(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
          //this is the case where the the bot has veered off course, now none of the sensors are detecting the line
           ui_Left_Motor_Speed=ci_Left_Motor_Stop;
           ui_Right_Motor_Speed=ci_Right_Motor_Stop;
+          int startingPos=encoder_LeftMotor.getPosition();
+          int currentPos=startingPos;
+          servo_LeftMotor.writeMicroseconds(ui_Motors_Speed);
+          servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+          while (currentPos<(startingPos+0.5)){
+            currentPos=encoder_LeftMotor.getPosition();
+          }
+          servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
         }
         else if (ui_Left_Line_Tracker_Data<(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)){
           //this means left tracker is on top of line
@@ -322,6 +333,7 @@ void loop()
         else if (ui_Middle_Line_Tracker_Data<(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)){
           ui_Left_Motor_Speed=ui_Motors_Speed;
           ui_Right_Motor_Speed=ui_Motors_Speed;
+        }
         }
         
         
