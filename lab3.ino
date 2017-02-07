@@ -289,9 +289,9 @@ void loop()
           // set motor speeds
           ui_Left_Motor_Speed = constrain(ui_Motors_Speed + ui_Left_Motor_Offset, 1600, 2100);
           ui_Right_Motor_Speed = constrain(ui_Motors_Speed + ui_Right_Motor_Offset, 1600, 2100);
-          lineDetected[0]=(ui_Left_Line_Tracker_Data<(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance));
-          lineDetected[1]=(ui_Middle_Line_Tracker_Data<(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance));
-          lineDetected[2]=(ui_Right_Line_Tracker_Data<(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance));
+          lineDetected[0] = (ui_Left_Line_Tracker_Data < (ui_Left_Line_Tracker_Dark - ui_Line_Tracker_Tolerance));
+          lineDetected[1] = (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance));
+          lineDetected[2] = (ui_Right_Line_Tracker_Data < (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance));
           /***************************************************************************************
             Add line tracking code here.
             Adjust motor speed according to information from line tracking sensors and
@@ -317,20 +317,10 @@ void loop()
               //this is the case where the the bot has veered off course, now none of the sensors are detecting the line
               ui_Left_Motor_Speed = ci_Left_Motor_Stop;
               ui_Right_Motor_Speed = ci_Right_Motor_Stop;
-              
-              int startingPos = encoder_LeftMotor.getPosition();
-              int currentPos = startingPos;
-              if (reversed==-1){
-                encoder_LeftMotor.setReversed(true);
-                servo_LeftMotor.writeMicroseconds(1300);//make left motor spin backwards
-                ui_Left_Motor_Speed=1300;
-              }
-              else{
-                servo_LeftMotor.writeMicroseconds(1600);
-                ui_Left_Motor_Speed=1600;
-              }
+              servo_LeftMotor.writeMicroseconds(1300);//make left motor spin backwards
+              ui_Left_Motor_Speed = 1300;
               servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
-              lineSeeking=true;
+              lineSeeking = true;
               lineFollowing = false;
             }
             else if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
@@ -352,7 +342,7 @@ void loop()
               ui_Left_Motor_Speed += 100 * reversed;
               ui_Right_Motor_Speed -= 100 * reversed;
             }
-          }
+          }/*
           if (lineSeeking==true){
             if (lineDetected[0]==true){
               reversed*=-1;
@@ -360,6 +350,7 @@ void loop()
               lineFollowing=true;
             }
           }
+*/
           if (bt_Motors_Enabled)
           {
             servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed);
