@@ -28,17 +28,18 @@ I2CEncoder encoder_LeftMotor;
 // Uncomment keywords to enable debugging output
 
 //#define DEBUG_MODE_DISPLAY
-//#define DEBUG_MOTORS
+#define DEBUG_MOTORS
 //#define DEBUG_LINE_TRACKERS
-//#define DEBUG_ENCODERS
+#define DEBUG_ENCODERS
 //#define DEBUG_ULTRASONIC
-#define DEBUG_LINE_TRACKER_CALIBRATION
-#define DEBUG_MOTOR_CALIBRATION
+//#define DEBUG_LINE_TRACKER_CALIBRATION
+//#define DEBUG_MOTOR_CALIBRATION
 
 boolean bt_Motors_Enabled = true;
 boolean lineFollowing = true;
-boolean lineSeeking=false;
-
+boolean lineSeeking = false;
+int reversed = -1;
+bool lineDetected[3];
 
 //port pin constants
 const int ci_Ultrasonic_Ping = 2;   //input plug
@@ -288,16 +289,18 @@ void loop()
           // set motor speeds
           ui_Left_Motor_Speed = constrain(ui_Motors_Speed + ui_Left_Motor_Offset, 1600, 2100);
           ui_Right_Motor_Speed = constrain(ui_Motors_Speed + ui_Right_Motor_Offset, 1600, 2100);
-
+          lineDetected[0]=(ui_Left_Line_Tracker_Data<(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance));
+          lineDetected[1]=(ui_Middle_Line_Tracker_Data<(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance));
+          lineDetected[2]=(ui_Right_Line_Tracker_Data<(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance));
           /***************************************************************************************
             Add line tracking code here.
             Adjust motor speed according to information from line tracking sensors and
             possibly encoder counts.
             /*************************************************************************************/
-          /*
-            if ((ui_Left_Line_Tracker_Data<(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data<(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data<(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
+
+          /*  if ((ui_Left_Line_Tracker_Data<(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data<(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data<(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
             //case where the car is at threat level: triple 3 yellow
-            lineFollowing=false;//stop following the yellow line
+            lineFollowing=true;//stop following the yellow line
             ui_Left_Motor_Speed=ci_Left_Motor_Stop;
             ui_Right_Motor_Speed=ci_Right_Motor_Stop;
             int startingPos=encoder_RightMotor.getPosition();
@@ -314,34 +317,45 @@ void loop()
               //this is the case where the the bot has veered off course, now none of the sensors are detecting the line
               ui_Left_Motor_Speed = ci_Left_Motor_Stop;
               ui_Right_Motor_Speed = ci_Right_Motor_Stop;
+              
               int startingPos = encoder_LeftMotor.getPosition();
               int currentPos = startingPos;
-              servo_LeftMotor.writeMicroseconds(ui_Motors_Speed);
+              if (reversed==-1){
+                
+                servo_LeftMotor.writeMicroseconds(1300);//make left motor spin backwards
+              }
+              else{
+                servo_LeftMotor.writeMicroseconds(1600);
+              }
               servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
-              while (currentPos < (startingPos + 0.1845)) {
+              while (currentPos > (startingPos - 0.3)) {
                 currentPos = encoder_LeftMotor.getPosition();
               }
               servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
-              ui_Left_Motor_Speed=ui_Motors_Speed;
-              ui_Right_Motor_Speed=ui_Motors_Speed;
-              lineSeeking=true;
+              ui_Left_Motor_Speed = ui_Motors_Speed;
+              ui_Right_Motor_Speed = ui_Motors_Speed;
               lineFollowing = false;
+            }
+            if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
+              if (reversed == 1) {
+                ui_Left_Motor_Speed = ui_Motors_Speed;
+                ui_Right_Motor_Speed = ui_Motors_Speed;
+              }
+              else {
+                ui_Left_Motor_Speed = 1300;
+                ui_Right_Motor_Speed = 1300;
+              }
             }
             else if (ui_Left_Line_Tracker_Data < (ui_Left_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
               //this means left tracker is on top of line
-              ui_Left_Motor_Speed -= 100;
-              ui_Right_Motor_Speed += 100;
+              ui_Left_Motor_Speed -= 100 * reversed;
+              ui_Right_Motor_Speed += 100 * reversed;
             }
             else if (ui_Right_Line_Tracker_Data < (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
-              ui_Left_Motor_Speed += 100;
-              ui_Right_Motor_Speed -= 100;
-            }
-            else if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
-              ui_Left_Motor_Speed = ui_Motors_Speed;
-              ui_Right_Motor_Speed = ui_Motors_Speed;
+              ui_Left_Motor_Speed += 100 * reversed;
+              ui_Right_Motor_Speed -= 100 * reversed;
             }
           }
-
 
           if (bt_Motors_Enabled)
           {
