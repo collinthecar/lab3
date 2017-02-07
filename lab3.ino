@@ -1,14 +1,14 @@
 /*
 
- MSE 2202 MSEBot base code for Labs 3 and 4
- Language: Arduino
- Authors: Michael Naish and Eugen Porter
- Date: 16/01/17
- 
- Rev 1 - Initial version
- Rev 2 - Update for MSEduino v. 2
- 
- */
+  MSE 2202 MSEBot base code for Labs 3 and 4
+  Language: Arduino
+  Authors: Michael Naish and Eugen Porter
+  Date: 16/01/17
+
+  Rev 1 - Initial version
+  Rev 2 - Update for MSEduino v. 2
+
+*/
 
 #include <Servo.h>
 #include <EEPROM.h>
@@ -19,7 +19,7 @@
 
 Servo servo_RightMotor;
 Servo servo_LeftMotor;
-Servo servo_ArmMotor;    
+Servo servo_ArmMotor;
 Servo servo_GripMotor;
 
 I2CEncoder encoder_RightMotor;
@@ -36,7 +36,8 @@ I2CEncoder encoder_LeftMotor;
 #define DEBUG_MOTOR_CALIBRATION
 
 boolean bt_Motors_Enabled = true;
-boolean lineFollowing=true;
+boolean lineFollowing = true;
+boolean lineSeeking=false;
 
 
 //port pin constants
@@ -142,7 +143,7 @@ unsigned int  ui_Mode_Indicator[6] = {
 unsigned int  ui_Mode_Indicator_Index = 0;
 
 //display Bits 0,1,2,3, 4, 5, 6,  7,  8,  9,  10,  11,  12,  13,   14,   15
-int  iArray[16] = {1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,65536};
+int  iArray[16] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 65536};
 int  iArrayIndex = 0;
 
 boolean bt_Heartbeat = true;
@@ -154,8 +155,8 @@ void setup() {
   Wire.begin();        // Wire library required for I2CEncoder library
   Serial.begin(9600);
 
-  CharliePlexM::setBtn(ci_Charlieplex_LED1,ci_Charlieplex_LED2,
-                       ci_Charlieplex_LED3,ci_Charlieplex_LED4,ci_Mode_Button);
+  CharliePlexM::setBtn(ci_Charlieplex_LED1, ci_Charlieplex_LED2,
+                       ci_Charlieplex_LED3, ci_Charlieplex_LED4, ci_Mode_Button);
 
   // set up ultrasonic
   pinMode(ci_Ultrasonic_Ping, OUTPUT);
@@ -176,12 +177,12 @@ void setup() {
   // set up motor enable switch
   pinMode(ci_Motor_Enable_Switch, INPUT);
 
-  // set up encoders. Must be initialized in order that they are chained together, 
+  // set up encoders. Must be initialized in order that they are chained together,
   // starting with the encoder directly connected to the Arduino. See I2CEncoder docs
   // for more information
-  encoder_LeftMotor.init(1.0/3.0*MOTOR_393_SPEED_ROTATIONS, MOTOR_393_TIME_DELTA);
+  encoder_LeftMotor.init(1.0 / 3.0 * MOTOR_393_SPEED_ROTATIONS, MOTOR_393_TIME_DELTA);
   encoder_LeftMotor.setReversed(false);  // adjust for positive count when moving forward
-  encoder_RightMotor.init(1.0/3.0*MOTOR_393_SPEED_ROTATIONS, MOTOR_393_TIME_DELTA);  
+  encoder_RightMotor.init(1.0 / 3.0 * MOTOR_393_SPEED_ROTATIONS, MOTOR_393_TIME_DELTA);
   encoder_RightMotor.setReversed(true);  // adjust for positive count when moving forward
 
   // set up line tracking sensors
@@ -199,7 +200,7 @@ void setup() {
   ui_Left_Line_Tracker_Light = word(b_HighByte, b_LowByte);
   b_LowByte = EEPROM.read(ci_Middle_Line_Tracker_Dark_Address_L);
   b_HighByte = EEPROM.read(ci_Left_Line_Tracker_Dark_Address_H);
-  ui_Middle_Line_Tracker_Dark = word(b_HighByte, b_LowByte); 
+  ui_Middle_Line_Tracker_Dark = word(b_HighByte, b_LowByte);
   b_LowByte = EEPROM.read(ci_Middle_Line_Tracker_Light_Address_L);
   b_HighByte = EEPROM.read(ci_Left_Line_Tracker_Dark_Address_H);
   ui_Middle_Line_Tracker_Light = word(b_HighByte, b_LowByte);
@@ -219,15 +220,15 @@ void setup() {
 
 void loop()
 {
-  if((millis() - ul_3_Second_timer) > 3000)
+  if ((millis() - ul_3_Second_timer) > 3000)
   {
     bt_3_S_Time_Up = true;
   }
 
   // button-based mode selection
-  if(CharliePlexM::ui_Btn)
+  if (CharliePlexM::ui_Btn)
   {
-    if(bt_Do_Once == false)
+    if (bt_Do_Once == false)
     {
       bt_Do_Once = true;
       ui_Robot_State_Index++;
@@ -246,280 +247,285 @@ void loop()
   // check if drive motors should be powered
   bt_Motors_Enabled = digitalRead(ci_Motor_Enable_Switch);
 
-  // modes 
+  // modes
   // 0 = default after power up/reset
   // 1 = Press mode button once to enter. Run robot.
   // 2 = Press mode button twice to enter. Calibrate line tracker light level.
   // 3 = Press mode button three times to enter. Calibrate line tracker dark level.
   // 4 = Press mode button four times to enter. Calibrate motor speeds to drive straight.
-  switch(ui_Robot_State_Index)
+  switch (ui_Robot_State_Index)
   {
     case 0:    //Robot stopped
-    {
-      readLineTrackers();
-      Ping();
-      servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop); 
-      servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop); 
-      servo_ArmMotor.write(ci_Arm_Servo_Retracted);
-      servo_GripMotor.write(ci_Grip_Motor_Closed);
-      encoder_LeftMotor.zero();
-      encoder_RightMotor.zero();
-      ui_Mode_Indicator_Index = 0;
-      break;
-    } 
-  
-    case 1:    //Robot Run after 3 seconds
-    {
-      if(bt_3_S_Time_Up)
       {
         readLineTrackers();
+        Ping();
+        servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+        servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+        servo_ArmMotor.write(ci_Arm_Servo_Retracted);
+        servo_GripMotor.write(ci_Grip_Motor_Closed);
+        encoder_LeftMotor.zero();
+        encoder_RightMotor.zero();
+        ui_Mode_Indicator_Index = 0;
+        break;
+      }
 
-#ifdef DEBUG_ENCODERS           
-        l_Left_Motor_Position = encoder_LeftMotor.getRawPosition();
-        l_Right_Motor_Position = encoder_RightMotor.getRawPosition();
+    case 1:    //Robot Run after 3 seconds
+      {
+        if (bt_3_S_Time_Up)
+        {
+          readLineTrackers();
 
-        Serial.print("Encoders L: ");
-        Serial.print(l_Left_Motor_Position);
-        Serial.print(", R: ");
-        Serial.println(l_Right_Motor_Position);
-#endif
-//change for jack
-//change fo me
-       // set motor speeds
-        ui_Left_Motor_Speed = constrain(ui_Motors_Speed + ui_Left_Motor_Offset, 1600, 2100);
-        ui_Right_Motor_Speed = constrain(ui_Motors_Speed + ui_Right_Motor_Offset, 1600, 2100);
-       
-       /***************************************************************************************
-         Add line tracking code here. 
-         Adjust motor speed according to information from line tracking sensors and 
-         possibly encoder counts.
-       /*************************************************************************************/
-        if ((ui_Left_Line_Tracker_Data<(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data<(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data<(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
-          //case where the car is at threat level: triple 3 yellow
-          lineFollowing=false;//stop following the yellow line
-          ui_Left_Motor_Speed=ci_Left_Motor_Stop;
-          ui_Right_Motor_Speed=ci_Right_Motor_Stop;
-          int startingPos=encoder_RightMotor.getPosition();
-          int currentPos=startingPos;
-          servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
-          servo_RightMotor.writeMicroseconds(ui_Motors_Speed);
-          while (currentPos<(startingPos+1.3551)){//will keep updating the position of right motor until it the bot has turned 90 degrees. see documentation for 1.3551 determination
-            currentPos=encoder_RightMotor.getPosition();
-          }
-        }
-        if (lineFollowing==true){
-        if ((ui_Left_Line_Tracker_Data>(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data>(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data>(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
-         //this is the case where the the bot has veered off course, now none of the sensors are detecting the line
-          ui_Left_Motor_Speed=ci_Left_Motor_Stop;
-          ui_Right_Motor_Speed=ci_Right_Motor_Stop;
-          int startingPos=encoder_LeftMotor.getPosition();
-          int currentPos=startingPos;
-          servo_LeftMotor.writeMicroseconds(ui_Motors_Speed);
-          servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
-          while (currentPos<(startingPos+0.5)){
-            currentPos=encoder_LeftMotor.getPosition();
-          }
-          servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
-        }
-        else if (ui_Left_Line_Tracker_Data<(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)){
-          //this means left tracker is on top of line
-          ui_Left_Motor_Speed-=100;
-          ui_Right_Motor_Speed+=100;
-        }
-        else if (ui_Right_Line_Tracker_Data<(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)){
-          ui_Left_Motor_Speed+=100;
-          ui_Right_Motor_Speed-=100;
-        }
-        else if (ui_Middle_Line_Tracker_Data<(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)){
-          ui_Left_Motor_Speed=ui_Motors_Speed;
-          ui_Right_Motor_Speed=ui_Motors_Speed;
-        }
-        }
-        
-        
-        if(bt_Motors_Enabled)
-        {
-          servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed);
-          servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed);
-        }
-        else
-        {  
-          servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop); 
-          servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop); 
-        }
-#ifdef DEBUG_MOTORS
-        Serial.print("Motors enabled: ");
-        Serial.print(bt_Motors_Enabled);
-        Serial.print(", Default: ");
-        Serial.print(ui_Motors_Speed);
-        Serial.print(", Left = ");
-        Serial.print(ui_Left_Motor_Speed);
-        Serial.print(", Right = ");
-        Serial.println(ui_Right_Motor_Speed);
-#endif    
-        ui_Mode_Indicator_Index = 1;
-      }
-      break;
-    } 
-    
-    case 2:    //Calibrate line tracker light levels after 3 seconds
-    {
-      if(bt_3_S_Time_Up)
-      {
-        if(!bt_Cal_Initialized)
-        {
-          bt_Cal_Initialized = true;
-          ui_Left_Line_Tracker_Light = 0;
-          ui_Middle_Line_Tracker_Light = 0;
-          ui_Right_Line_Tracker_Light = 0;
-          ul_Calibration_Time = millis();
-          ui_Cal_Count = 0;
-        }
-        else if((millis() - ul_Calibration_Time) > ci_Line_Tracker_Calibration_Interval)
-        {
-          ul_Calibration_Time = millis();
-          readLineTrackers();
-          ui_Left_Line_Tracker_Light += ui_Left_Line_Tracker_Data;
-          ui_Middle_Line_Tracker_Light += ui_Middle_Line_Tracker_Data;
-          ui_Right_Line_Tracker_Light += ui_Right_Line_Tracker_Data;
-          ui_Cal_Count++;
-        }
-        if(ui_Cal_Count == ci_Line_Tracker_Cal_Measures)
-        {
-          ui_Left_Line_Tracker_Light /= ci_Line_Tracker_Cal_Measures;
-          ui_Middle_Line_Tracker_Light /= ci_Line_Tracker_Cal_Measures;
-          ui_Right_Line_Tracker_Light /= ci_Line_Tracker_Cal_Measures;
-#ifdef DEBUG_LINE_TRACKER_CALIBRATION
-          Serial.print("Light Levels: Left = ");
-          Serial.print(ui_Left_Line_Tracker_Light,DEC);
-          Serial.print(", Middle = ");
-          Serial.print(ui_Middle_Line_Tracker_Light,DEC);
-          Serial.print(", Right = ");
-          Serial.println(ui_Right_Line_Tracker_Light,DEC);
-#endif           
-          EEPROM.write(ci_Left_Line_Tracker_Light_Address_L, lowByte(ui_Left_Line_Tracker_Light));
-          EEPROM.write(ci_Left_Line_Tracker_Light_Address_H, highByte(ui_Left_Line_Tracker_Light));
-          EEPROM.write(ci_Middle_Line_Tracker_Light_Address_L, lowByte(ui_Middle_Line_Tracker_Light));
-          EEPROM.write(ci_Middle_Line_Tracker_Light_Address_H, highByte(ui_Middle_Line_Tracker_Light));
-          EEPROM.write(ci_Right_Line_Tracker_Light_Address_L, lowByte(ui_Right_Line_Tracker_Light));
-          EEPROM.write(ci_Right_Line_Tracker_Light_Address_H, highByte(ui_Right_Line_Tracker_Light));
-          ui_Robot_State_Index = 0;    // go back to Mode 0
-        }
-        ui_Mode_Indicator_Index = 2; 
-      }
-      break;
-    }
-    
-    case 3:    // Calibrate line tracker dark levels after 3 seconds
-    {
-      if(bt_3_S_Time_Up)
-      {
-        if(!bt_Cal_Initialized)
-        {
-          bt_Cal_Initialized = true;
-          ui_Left_Line_Tracker_Dark = 0;
-          ui_Middle_Line_Tracker_Dark = 0;
-          ui_Right_Line_Tracker_Dark = 0;
-          ul_Calibration_Time = millis();
-          ui_Cal_Count = 0;
-        }
-        else if((millis() - ul_Calibration_Time) > ci_Line_Tracker_Calibration_Interval)
-        {
-          ul_Calibration_Time = millis();
-          readLineTrackers();
-          ui_Left_Line_Tracker_Dark += ui_Left_Line_Tracker_Data;
-          ui_Middle_Line_Tracker_Dark += ui_Middle_Line_Tracker_Data;
-          ui_Right_Line_Tracker_Dark += ui_Right_Line_Tracker_Data;
-          ui_Cal_Count++;
-        }
-        if(ui_Cal_Count == ci_Line_Tracker_Cal_Measures)
-        {
-          ui_Left_Line_Tracker_Dark /= ci_Line_Tracker_Cal_Measures;
-          ui_Middle_Line_Tracker_Dark /= ci_Line_Tracker_Cal_Measures;
-          ui_Right_Line_Tracker_Dark /= ci_Line_Tracker_Cal_Measures;
-#ifdef DEBUG_LINE_TRACKER_CALIBRATION
-          Serial.print("Dark Levels: Left = ");
-          Serial.print(ui_Left_Line_Tracker_Dark,DEC);
-          Serial.print(", Middle = ");
-          Serial.print(ui_Middle_Line_Tracker_Dark,DEC);
-          Serial.print(", Right = ");
-          Serial.println(ui_Right_Line_Tracker_Dark,DEC);
-#endif           
-          EEPROM.write(ci_Left_Line_Tracker_Dark_Address_L, lowByte(ui_Left_Line_Tracker_Dark));
-          EEPROM.write(ci_Left_Line_Tracker_Dark_Address_H, highByte(ui_Left_Line_Tracker_Dark));
-          EEPROM.write(ci_Middle_Line_Tracker_Dark_Address_L, lowByte(ui_Middle_Line_Tracker_Dark));
-          EEPROM.write(ci_Middle_Line_Tracker_Dark_Address_H, highByte(ui_Middle_Line_Tracker_Dark));
-          EEPROM.write(ci_Right_Line_Tracker_Dark_Address_L, lowByte(ui_Right_Line_Tracker_Dark));
-          EEPROM.write(ci_Right_Line_Tracker_Dark_Address_H, highByte(ui_Right_Line_Tracker_Dark));
-          ui_Robot_State_Index = 0;    // go back to Mode 0
-        }
-        ui_Mode_Indicator_Index = 3;
-      }
-      break;
-    }
-   
-    case 4:    //Calibrate motor straightness after 3 seconds.
-    {
-      if(bt_3_S_Time_Up)
-      {
-        if(!bt_Cal_Initialized)
-        {
-          bt_Cal_Initialized = true;
-          encoder_LeftMotor.zero();
-          encoder_RightMotor.zero();
-          ul_Calibration_Time = millis();
-          servo_LeftMotor.writeMicroseconds(ui_Motors_Speed);
-          servo_RightMotor.writeMicroseconds(ui_Motors_Speed);
-        }
-        else if((millis() - ul_Calibration_Time) > ci_Motor_Calibration_Time) 
-        {
-          servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop); 
-          servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop); 
+#ifdef DEBUG_ENCODERS
           l_Left_Motor_Position = encoder_LeftMotor.getRawPosition();
           l_Right_Motor_Position = encoder_RightMotor.getRawPosition();
-          if(l_Left_Motor_Position > l_Right_Motor_Position)
+
+          Serial.print("Encoders L: ");
+          Serial.print(l_Left_Motor_Position);
+          Serial.print(", R: ");
+          Serial.println(l_Right_Motor_Position);
+#endif
+          //change for jack
+          // set motor speeds
+          ui_Left_Motor_Speed = constrain(ui_Motors_Speed + ui_Left_Motor_Offset, 1600, 2100);
+          ui_Right_Motor_Speed = constrain(ui_Motors_Speed + ui_Right_Motor_Offset, 1600, 2100);
+
+          /***************************************************************************************
+            Add line tracking code here.
+            Adjust motor speed according to information from line tracking sensors and
+            possibly encoder counts.
+            /*************************************************************************************/
+          /*
+            if ((ui_Left_Line_Tracker_Data<(ui_Left_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data<(ui_Right_Line_Tracker_Dark-ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data<(ui_Middle_Line_Tracker_Dark-ui_Line_Tracker_Tolerance))){
+            //case where the car is at threat level: triple 3 yellow
+            lineFollowing=false;//stop following the yellow line
+            ui_Left_Motor_Speed=ci_Left_Motor_Stop;
+            ui_Right_Motor_Speed=ci_Right_Motor_Stop;
+            int startingPos=encoder_RightMotor.getPosition();
+            int currentPos=startingPos;
+            servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+            servo_RightMotor.writeMicroseconds(ui_Motors_Speed);
+            while (currentPos<(startingPos+1.3551)){//will keep updating the position of right motor until it the bot has turned 90 degrees. see documentation for 1.3551 determination
+              currentPos=encoder_RightMotor.getPosition();
+            }
+            }
+          */
+          if (lineFollowing == true) {
+            if ((ui_Left_Line_Tracker_Data > (ui_Left_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data > (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data > (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance))) {
+              //this is the case where the the bot has veered off course, now none of the sensors are detecting the line
+              ui_Left_Motor_Speed = ci_Left_Motor_Stop;
+              ui_Right_Motor_Speed = ci_Right_Motor_Stop;
+              int startingPos = encoder_LeftMotor.getPosition();
+              int currentPos = startingPos;
+              servo_LeftMotor.writeMicroseconds(ui_Motors_Speed);
+              servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+              while (currentPos < (startingPos + 0.1845)) {
+                currentPos = encoder_LeftMotor.getPosition();
+              }
+              servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+              ui_Left_Motor_Speed=ui_Motors_Speed;
+              ui_Right_Motor_Speed=ui_Motors_Speed;
+              lineSeeking=true;
+              lineFollowing = false;
+            }
+            else if (ui_Left_Line_Tracker_Data < (ui_Left_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
+              //this means left tracker is on top of line
+              ui_Left_Motor_Speed -= 100;
+              ui_Right_Motor_Speed += 100;
+            }
+            else if (ui_Right_Line_Tracker_Data < (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
+              ui_Left_Motor_Speed += 100;
+              ui_Right_Motor_Speed -= 100;
+            }
+            else if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
+              ui_Left_Motor_Speed = ui_Motors_Speed;
+              ui_Right_Motor_Speed = ui_Motors_Speed;
+            }
+          }
+
+
+          if (bt_Motors_Enabled)
           {
-           // May have to update this if different calibration time is used
-            ui_Right_Motor_Offset = 0;
-            ui_Left_Motor_Offset = (l_Left_Motor_Position - l_Right_Motor_Position) / 4;  
+            servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed);
+            servo_RightMotor.writeMicroseconds(ui_Right_Motor_Speed);
           }
           else
           {
-           // May have to update this if different calibration time is used
-            ui_Right_Motor_Offset = (l_Right_Motor_Position - l_Left_Motor_Position) / 4;
-            ui_Left_Motor_Offset = 0;
+            servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+            servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
           }
-          
-#ifdef DEBUG_MOTOR_CALIBRATION
-          Serial.print("Motor Offsets: Left = ");
-          Serial.print(ui_Left_Motor_Offset);
+#ifdef DEBUG_MOTORS
+          Serial.print("Motors enabled: ");
+          Serial.print(bt_Motors_Enabled);
+          Serial.print(", Default: ");
+          Serial.print(ui_Motors_Speed);
+          Serial.print(", Left = ");
+          Serial.print(ui_Left_Motor_Speed);
           Serial.print(", Right = ");
-          Serial.println(ui_Right_Motor_Offset);
-#endif              
-          EEPROM.write(ci_Right_Motor_Offset_Address_L, lowByte(ui_Right_Motor_Offset));
-          EEPROM.write(ci_Right_Motor_Offset_Address_H, highByte(ui_Right_Motor_Offset));
-          EEPROM.write(ci_Left_Motor_Offset_Address_L, lowByte(ui_Left_Motor_Offset));
-          EEPROM.write(ci_Left_Motor_Offset_Address_H, highByte(ui_Left_Motor_Offset));
-          
-          ui_Robot_State_Index = 0;    // go back to Mode 0 
+          Serial.println(ui_Right_Motor_Speed);
+#endif
+          ui_Mode_Indicator_Index = 1;
         }
-#ifdef DEBUG_MOTOR_CALIBRATION           
+        break;
+      }
+
+    case 2:    //Calibrate line tracker light levels after 3 seconds
+      {
+        if (bt_3_S_Time_Up)
+        {
+          if (!bt_Cal_Initialized)
+          {
+            bt_Cal_Initialized = true;
+            ui_Left_Line_Tracker_Light = 0;
+            ui_Middle_Line_Tracker_Light = 0;
+            ui_Right_Line_Tracker_Light = 0;
+            ul_Calibration_Time = millis();
+            ui_Cal_Count = 0;
+          }
+          else if ((millis() - ul_Calibration_Time) > ci_Line_Tracker_Calibration_Interval)
+          {
+            ul_Calibration_Time = millis();
+            readLineTrackers();
+            ui_Left_Line_Tracker_Light += ui_Left_Line_Tracker_Data;
+            ui_Middle_Line_Tracker_Light += ui_Middle_Line_Tracker_Data;
+            ui_Right_Line_Tracker_Light += ui_Right_Line_Tracker_Data;
+            ui_Cal_Count++;
+          }
+          if (ui_Cal_Count == ci_Line_Tracker_Cal_Measures)
+          {
+            ui_Left_Line_Tracker_Light /= ci_Line_Tracker_Cal_Measures;
+            ui_Middle_Line_Tracker_Light /= ci_Line_Tracker_Cal_Measures;
+            ui_Right_Line_Tracker_Light /= ci_Line_Tracker_Cal_Measures;
+#ifdef DEBUG_LINE_TRACKER_CALIBRATION
+            Serial.print("Light Levels: Left = ");
+            Serial.print(ui_Left_Line_Tracker_Light, DEC);
+            Serial.print(", Middle = ");
+            Serial.print(ui_Middle_Line_Tracker_Light, DEC);
+            Serial.print(", Right = ");
+            Serial.println(ui_Right_Line_Tracker_Light, DEC);
+#endif
+            EEPROM.write(ci_Left_Line_Tracker_Light_Address_L, lowByte(ui_Left_Line_Tracker_Light));
+            EEPROM.write(ci_Left_Line_Tracker_Light_Address_H, highByte(ui_Left_Line_Tracker_Light));
+            EEPROM.write(ci_Middle_Line_Tracker_Light_Address_L, lowByte(ui_Middle_Line_Tracker_Light));
+            EEPROM.write(ci_Middle_Line_Tracker_Light_Address_H, highByte(ui_Middle_Line_Tracker_Light));
+            EEPROM.write(ci_Right_Line_Tracker_Light_Address_L, lowByte(ui_Right_Line_Tracker_Light));
+            EEPROM.write(ci_Right_Line_Tracker_Light_Address_H, highByte(ui_Right_Line_Tracker_Light));
+            ui_Robot_State_Index = 0;    // go back to Mode 0
+          }
+          ui_Mode_Indicator_Index = 2;
+        }
+        break;
+      }
+
+    case 3:    // Calibrate line tracker dark levels after 3 seconds
+      {
+        if (bt_3_S_Time_Up)
+        {
+          if (!bt_Cal_Initialized)
+          {
+            bt_Cal_Initialized = true;
+            ui_Left_Line_Tracker_Dark = 0;
+            ui_Middle_Line_Tracker_Dark = 0;
+            ui_Right_Line_Tracker_Dark = 0;
+            ul_Calibration_Time = millis();
+            ui_Cal_Count = 0;
+          }
+          else if ((millis() - ul_Calibration_Time) > ci_Line_Tracker_Calibration_Interval)
+          {
+            ul_Calibration_Time = millis();
+            readLineTrackers();
+            ui_Left_Line_Tracker_Dark += ui_Left_Line_Tracker_Data;
+            ui_Middle_Line_Tracker_Dark += ui_Middle_Line_Tracker_Data;
+            ui_Right_Line_Tracker_Dark += ui_Right_Line_Tracker_Data;
+            ui_Cal_Count++;
+          }
+          if (ui_Cal_Count == ci_Line_Tracker_Cal_Measures)
+          {
+            ui_Left_Line_Tracker_Dark /= ci_Line_Tracker_Cal_Measures;
+            ui_Middle_Line_Tracker_Dark /= ci_Line_Tracker_Cal_Measures;
+            ui_Right_Line_Tracker_Dark /= ci_Line_Tracker_Cal_Measures;
+#ifdef DEBUG_LINE_TRACKER_CALIBRATION
+            Serial.print("Dark Levels: Left = ");
+            Serial.print(ui_Left_Line_Tracker_Dark, DEC);
+            Serial.print(", Middle = ");
+            Serial.print(ui_Middle_Line_Tracker_Dark, DEC);
+            Serial.print(", Right = ");
+            Serial.println(ui_Right_Line_Tracker_Dark, DEC);
+#endif
+            EEPROM.write(ci_Left_Line_Tracker_Dark_Address_L, lowByte(ui_Left_Line_Tracker_Dark));
+            EEPROM.write(ci_Left_Line_Tracker_Dark_Address_H, highByte(ui_Left_Line_Tracker_Dark));
+            EEPROM.write(ci_Middle_Line_Tracker_Dark_Address_L, lowByte(ui_Middle_Line_Tracker_Dark));
+            EEPROM.write(ci_Middle_Line_Tracker_Dark_Address_H, highByte(ui_Middle_Line_Tracker_Dark));
+            EEPROM.write(ci_Right_Line_Tracker_Dark_Address_L, lowByte(ui_Right_Line_Tracker_Dark));
+            EEPROM.write(ci_Right_Line_Tracker_Dark_Address_H, highByte(ui_Right_Line_Tracker_Dark));
+            ui_Robot_State_Index = 0;    // go back to Mode 0
+          }
+          ui_Mode_Indicator_Index = 3;
+        }
+        break;
+      }
+
+    case 4:    //Calibrate motor straightness after 3 seconds.
+      {
+        if (bt_3_S_Time_Up)
+        {
+          if (!bt_Cal_Initialized)
+          {
+            bt_Cal_Initialized = true;
+            encoder_LeftMotor.zero();
+            encoder_RightMotor.zero();
+            ul_Calibration_Time = millis();
+            servo_LeftMotor.writeMicroseconds(ui_Motors_Speed);
+            servo_RightMotor.writeMicroseconds(ui_Motors_Speed);
+          }
+          else if ((millis() - ul_Calibration_Time) > ci_Motor_Calibration_Time)
+          {
+            servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+            servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+            l_Left_Motor_Position = encoder_LeftMotor.getRawPosition();
+            l_Right_Motor_Position = encoder_RightMotor.getRawPosition();
+            if (l_Left_Motor_Position > l_Right_Motor_Position)
+            {
+              // May have to update this if different calibration time is used
+              ui_Right_Motor_Offset = 0;
+              ui_Left_Motor_Offset = (l_Left_Motor_Position - l_Right_Motor_Position) / 4;
+            }
+            else
+            {
+              // May have to update this if different calibration time is used
+              ui_Right_Motor_Offset = (l_Right_Motor_Position - l_Left_Motor_Position) / 4;
+              ui_Left_Motor_Offset = 0;
+            }
+
+#ifdef DEBUG_MOTOR_CALIBRATION
+            Serial.print("Motor Offsets: Left = ");
+            Serial.print(ui_Left_Motor_Offset);
+            Serial.print(", Right = ");
+            Serial.println(ui_Right_Motor_Offset);
+#endif
+            EEPROM.write(ci_Right_Motor_Offset_Address_L, lowByte(ui_Right_Motor_Offset));
+            EEPROM.write(ci_Right_Motor_Offset_Address_H, highByte(ui_Right_Motor_Offset));
+            EEPROM.write(ci_Left_Motor_Offset_Address_L, lowByte(ui_Left_Motor_Offset));
+            EEPROM.write(ci_Left_Motor_Offset_Address_H, highByte(ui_Left_Motor_Offset));
+
+            ui_Robot_State_Index = 0;    // go back to Mode 0
+          }
+#ifdef DEBUG_MOTOR_CALIBRATION
           Serial.print("Encoders L: ");
           Serial.print(encoder_LeftMotor.getRawPosition());
           Serial.print(", R: ");
           Serial.println(encoder_RightMotor.getRawPosition());
-#endif        
-        ui_Mode_Indicator_Index = 4;
-      } 
-      break;
-    }    
+#endif
+          ui_Mode_Indicator_Index = 4;
+        }
+        break;
+      }
   }
 
-  if((millis() - ul_Display_Time) > ci_Display_Time)
+  if ((millis() - ul_Display_Time) > ci_Display_Time)
   {
     ul_Display_Time = millis();
 
-#ifdef DEBUG_MODE_DISPLAY  
+#ifdef DEBUG_MODE_DISPLAY
     Serial.print("Mode: ");
     Serial.println(ui_Mode_Indicator[ui_Mode_Indicator_Index], DEC);
 #endif
@@ -528,14 +534,14 @@ void loop()
     digitalWrite(13, bt_Heartbeat);
     Indicator();
   }
-} 
+}
 
 // set mode indicator LED state
 void Indicator()
 {
   //display routine, if true turn on led
-  CharliePlexM::Write(ci_Indicator_LED,!(ui_Mode_Indicator[ui_Mode_Indicator_Index] & 
-                      (iArray[iArrayIndex])));
+  CharliePlexM::Write(ci_Indicator_LED, !(ui_Mode_Indicator[ui_Mode_Indicator_Index] &
+                                          (iArray[iArrayIndex])));
   iArrayIndex++;
   iArrayIndex = iArrayIndex & 15;
 }
@@ -547,43 +553,43 @@ void readLineTrackers()
   ui_Middle_Line_Tracker_Data = analogRead(ci_Middle_Line_Tracker);
   ui_Right_Line_Tracker_Data = analogRead(ci_Right_Line_Tracker);
 
-  if(ui_Left_Line_Tracker_Data < (ui_Left_Line_Tracker_Dark - ui_Line_Tracker_Tolerance))
+  if (ui_Left_Line_Tracker_Data < (ui_Left_Line_Tracker_Dark - ui_Line_Tracker_Tolerance))
   {
     CharliePlexM::Write(ci_Left_Line_Tracker_LED, HIGH);
   }
   else
-  { 
+  {
     CharliePlexM::Write(ci_Left_Line_Tracker_LED, LOW);
   }
-  if(ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance))
+  if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance))
   {
     CharliePlexM::Write(ci_Middle_Line_Tracker_LED, HIGH);
   }
   else
-  { 
+  {
     CharliePlexM::Write(ci_Middle_Line_Tracker_LED, LOW);
   }
-  if(ui_Right_Line_Tracker_Data < (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance))
+  if (ui_Right_Line_Tracker_Data < (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance))
   {
     CharliePlexM::Write(ci_Right_Line_Tracker_LED, HIGH);
   }
   else
-  { 
+  {
     CharliePlexM::Write(ci_Right_Line_Tracker_LED, LOW);
   }
 
 #ifdef DEBUG_LINE_TRACKERS
   Serial.print("Trackers: Left = ");
-  Serial.print(ui_Left_Line_Tracker_Data,DEC);
+  Serial.print(ui_Left_Line_Tracker_Data, DEC);
   Serial.print(", Middle = ");
-  Serial.print(ui_Middle_Line_Tracker_Data,DEC);
+  Serial.print(ui_Middle_Line_Tracker_Data, DEC);
   Serial.print(", Right = ");
-  Serial.println(ui_Right_Line_Tracker_Data,DEC);
+  Serial.println(ui_Right_Line_Tracker_Data, DEC);
 #endif
 
 }
 
-// measure distance to target using ultrasonic sensor  
+// measure distance to target using ultrasonic sensor
 void Ping()
 {
   //Ping Ultrasonic
@@ -592,7 +598,7 @@ void Ping()
   delayMicroseconds(10);  //The 10 microsecond pause where the pulse in "high"
   digitalWrite(ci_Ultrasonic_Ping, LOW);
   //use command pulseIn to listen to Ultrasonic_Data pin to record the
-  //time that it takes from when the Pin goes HIGH until it goes LOW 
+  //time that it takes from when the Pin goes HIGH until it goes LOW
   ul_Echo_Time = pulseIn(ci_Ultrasonic_Data, HIGH, 10000);
 
   // Print Sensor Readings
@@ -600,11 +606,11 @@ void Ping()
   Serial.print("Time (microseconds): ");
   Serial.print(ul_Echo_Time, DEC);
   Serial.print(", Inches: ");
-  Serial.print(ul_Echo_Time/148); //divide time by 148 to get distance in inches
+  Serial.print(ul_Echo_Time / 148); //divide time by 148 to get distance in inches
   Serial.print(", cm: ");
-  Serial.println(ul_Echo_Time/58); //divide time by 58 to get distance in cm 
+  Serial.println(ul_Echo_Time / 58); //divide time by 58 to get distance in cm
 #endif
-}  
+}
 
 
 
