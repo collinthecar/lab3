@@ -321,20 +321,21 @@ void loop()
               int startingPos = encoder_LeftMotor.getPosition();
               int currentPos = startingPos;
               if (reversed==-1){
-                
+                encoder_LeftMotor.setReversed(true);
                 servo_LeftMotor.writeMicroseconds(1300);//make left motor spin backwards
               }
               else{
                 servo_LeftMotor.writeMicroseconds(1600);
               }
               servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
-              while (currentPos > (startingPos - 0.3)) {
+              while (currentPos < (startingPos + 0.1845)) {
                 currentPos = encoder_LeftMotor.getPosition();
               }
+              
               servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
               ui_Left_Motor_Speed = ui_Motors_Speed;
               ui_Right_Motor_Speed = ui_Motors_Speed;
-              lineFollowing = false;
+              lineFollowing = true;
             }
             if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
               if (reversed == 1) {
