@@ -323,21 +323,17 @@ void loop()
               if (reversed==-1){
                 encoder_LeftMotor.setReversed(true);
                 servo_LeftMotor.writeMicroseconds(1300);//make left motor spin backwards
+                ui_Left_Motor_Speed=1300;
               }
               else{
                 servo_LeftMotor.writeMicroseconds(1600);
+                ui_Left_Motor_Speed=1600;
               }
               servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
-              while (currentPos < (startingPos + 0.1845)) {
-                currentPos = encoder_LeftMotor.getPosition();
-              }
-              
-              servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
-              ui_Left_Motor_Speed = ui_Motors_Speed;
-              ui_Right_Motor_Speed = ui_Motors_Speed;
-              lineFollowing = true;
+              lineSeeking=true;
+              lineFollowing = false;
             }
-            if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
+            else if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
               if (reversed == 1) {
                 ui_Left_Motor_Speed = ui_Motors_Speed;
                 ui_Right_Motor_Speed = ui_Motors_Speed;
@@ -357,7 +353,13 @@ void loop()
               ui_Right_Motor_Speed -= 100 * reversed;
             }
           }
-
+          if (lineSeeking==true){
+            if (lineDetected[0]==true){
+              reversed*=-1;
+              lineSeeking=false;
+              lineFollowing=true;
+            }
+          }
           if (bt_Motors_Enabled)
           {
             servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Speed);
