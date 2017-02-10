@@ -108,7 +108,7 @@ unsigned long ul_Echo_Time;
 unsigned int ui_Left_Line_Tracker_Data;
 unsigned int ui_Middle_Line_Tracker_Data;
 unsigned int ui_Right_Line_Tracker_Data;
-unsigned int ui_Motors_Speed = 1600;        // Default run speed
+unsigned int ui_Motors_Speed = 1550;        // Default run speed
 unsigned int ui_Left_Motor_Speed;
 unsigned int ui_Right_Motor_Speed;
 long l_Left_Motor_Position;
@@ -297,21 +297,33 @@ void loop()
             Adjust motor speed according to information from line tracking sensors and
             possibly encoder counts.
             /*************************************************************************************/
-          if (lineSeeking == true) {//this block will be executed when the bot is turning backwards looking for the line
-            ui_Left_Motor_Speed = 1300;
-            ui_Right_Motor_Speed = ci_Right_Motor_Stop;
-            if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {//check if we got to the line
-              servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
-              ui_Left_Motor_Speed = ci_Left_Motor_Stop;
-              servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
-              lineFollowing = true;
-              lineSeeking = false;
-              reversed = 1;
+          if (lineSeeking == true) {//this block is executed whenever the none of the trackers are detecting a line
+            if (reversed == -1) {//case where bot has finished following line but was going in reverse
+              ui_Left_Motor_Speed = 1300;
+              ui_Right_Motor_Speed = ci_Right_Motor_Stop;
+              if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {//check if we got to the line
+                servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+                ui_Left_Motor_Speed = ci_Left_Motor_Stop;
+                servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+                lineFollowing = true;
+                lineSeeking = false;
+                reversed = 1;
+              }
+            }
+            else{//case where the bot has finished following the line and it was moving forward
+              ui_Left_Motor_Speed=ci_Left_Motor_Stop;
+              ui_Right_Motor_Speed=ui_Motors_Speed;
+              if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)){//check if we got to line 
+                ui_Right_Motor_Speed=ci_Right_Motor_Stop;
+                servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+                servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+                lineFollowing=true;
+                lineSeeking=false;
+              }
             }
           }
           if (lineFollowing == true) {
             if ((ui_Left_Line_Tracker_Data > (ui_Left_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data > (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data > (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance))) {
-              
               delayMicroseconds(100);
               readLineTrackers();//make sure its not just a fluke
               if ((ui_Left_Line_Tracker_Data > (ui_Left_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) && (ui_Right_Line_Tracker_Data > (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) && (ui_Middle_Line_Tracker_Data > (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance))) {
@@ -321,6 +333,10 @@ void loop()
                 lineSeeking = true;
                 lineFollowing = false;
               }
+            }
+            else if (lineDetected[0]&&lineDetected[1]&&lineDetected[2]){//when it gets to the end of the small tape (where it needs to grab the light)
+              ui_Right_Motor_Speed=ci_Right_Motor_Stop;
+              ui_Left_Motor_Speed=ci_Left_Motor_Stop;
             }
             else if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
               if (reversed == 1) {
@@ -337,7 +353,6 @@ void loop()
               ui_Left_Motor_Speed -= 50 * reversed;
               ui_Right_Motor_Speed += 50 * reversed;
             }
-
             else if (ui_Right_Line_Tracker_Data < (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
               ui_Left_Motor_Speed += 50 * reversed;
               ui_Right_Motor_Speed -= 50 * reversed;
@@ -610,6 +625,9 @@ void Ping()
   Serial.print(", cm: ");
   Serial.println(ul_Echo_Time / 58); //divide time by 58 to get distance in cm
 #endif
+}
+void findLight()
+{
 }
 
 
