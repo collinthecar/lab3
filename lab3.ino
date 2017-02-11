@@ -39,7 +39,7 @@ boolean bt_Motors_Enabled = true;
 boolean lineFollowing = true;
 boolean lineSeeking = false;
 int reversed = -1;
-int lineReaquire=0;
+int lineReaquire = 0;
 bool lineDetected[3];
 int boxEchoTime;
 int lightVal;
@@ -334,25 +334,38 @@ void loop()
                 ui_Right_Motor_Speed = ci_Right_Motor_Stop;
                 lineSeeking = true;
                 lineFollowing = false;
-                if (lineReaquire%2==0){
+                if (lineReaquire % 2 == 0) {
                   //logic for when it needs to find your boy light
                   servo_GripMotor.write(ci_Grip_Motor_Open);//opens claw
-                  servo_ArmMotor.write(ci_Arm_Servo_Extend);//extend arm
+                  
                   Ping();
-                  while (ul_Echo_Time>boxEchoTime){
-                    Ping();
+                  while (ul_Echo_Time > boxEchoTime) {
+                    Ping();//keep moving until we get to the desired distance from the box
                   }
-                  if (checkLightSensor>lightVal){//check if the light sensor is detecting the object
-                    servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
-                    servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
-                    delay(10);//make sure the bot has stopped before closing the claw
-                    servo_GripMotor.write(ci_Grip_Motor_Closed);
-                    delay(10);
-                    servo_LeftMotor.writeMicroseconds(ui_Motors_Speed);
-                    while(lineDetected[1]){
-                      readLineTrackers();
-                    }
+                  servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+                  servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+                  delay(10);
+                  servo_RightMotor.writeMicroseconds(ui_Motors_Speed + 50); // turn in place
+                  servo_LeftMotor.writeMicroseconds(ui_Motor_Speed - 50);
+                  while (checkLightSensor < lightVal) {
+                    //do nothing, keep turning until the light is detected
                   }
+                  //now the light is detected
+                  servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+                  servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+                  delay(100);//make sure the bot has stopped before extending & closing the claw
+                  servo_ArmMotor.write(ci_Arm_Servo_Extend);//extend arm
+                  delay(100);
+                  servo_GripMotor.write(ci_Grip_Motor_Closed);
+                  delay(100);
+                  servo_LeftMotor.writeMicroseconds(ui_Motors_Speed);
+                  while (!lineDetected[1]) {
+                    readLineTrackers();//keep turning until we get to the drop location
+                  }
+                  servo_LeftMotor.writeMicroseconds(ui_Left_Motor_Stop);
+                  servo_GripMotor.writeMicroseconds(ci_Grip_Motor_Open);//drop the light
+                  lineFollowing=false;
+                  lineSeeking=false;//give the robot a break, he's done!
                 }
               }
             }
@@ -657,7 +670,7 @@ void Ping()
 }
 int checkLightSensor()
 {
-   return analogRead(ci_Light_Sensor);
+  return analogRead(ci_Light_Sensor);
 }
 
 
