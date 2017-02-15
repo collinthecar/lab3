@@ -44,7 +44,7 @@ bool lineDetected[3];
 unsigned long boxEchoTime = 590;
 int lightVal = 135;
 int pingTime = 0;
-int avg_lightSensorVal=0;
+int avg_lightSensorVal = 0;
 //port pin constants
 const int ci_Ultrasonic_Ping = 2;   //input plug
 const int ci_Ultrasonic_Data = 3;   //output plug
@@ -112,7 +112,7 @@ unsigned long ul_Echo_Time;
 unsigned int ui_Left_Line_Tracker_Data;
 unsigned int ui_Middle_Line_Tracker_Data;
 unsigned int ui_Right_Line_Tracker_Data;
-unsigned int ui_Motors_Speed = 1575;        // Default run speed
+unsigned int ui_Motors_Speed = 1600;        // Default run speed
 unsigned int ui_Left_Motor_Speed;
 unsigned int ui_Right_Motor_Speed;
 long l_Left_Motor_Position;
@@ -221,6 +221,9 @@ void setup() {
   b_LowByte = EEPROM.read(ci_Right_Motor_Offset_Address_L);
   b_HighByte = EEPROM.read(ci_Right_Motor_Offset_Address_H);
   ui_Right_Motor_Offset = word(b_HighByte, b_LowByte);
+  lineFollowing = true;
+  lineReaquire = 0;
+  lineSeeking = false;
 }
 
 void loop()
@@ -271,6 +274,15 @@ void loop()
         encoder_LeftMotor.zero();
         encoder_RightMotor.zero();
         ui_Mode_Indicator_Index = 0;
+        if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
+          Serial.println("Middle on");
+        }
+        else if (ui_Left_Line_Tracker_Data < (ui_Left_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
+          Serial.println("Left on");
+        }
+        else if (ui_Right_Line_Tracker_Data < (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
+          Serial.println("Right on");
+        }
         break;
       }
 
@@ -301,35 +313,42 @@ void loop()
             Adjust motor speed according to information from line tracking sensors and
             possibly encoder counts.
             /*************************************************************************************/
-          lineReaquire = 2;
-          reversed = 1;
-          lineSeeking = false;
+
           if (lineSeeking == true) {//this block is executed whenever the none of the trackers are detecting a line
             if (reversed == -1) {//case where bot has finished following line but was going in reverse
               if (lineReaquire == 0) {
-                ui_Left_Motor_Speed = 1400;
+                ui_Left_Motor_Speed = 1390;
                 ui_Right_Motor_Speed = 1600;
-                if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {//check if we got to the line
+                if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
                   servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
-                  ui_Left_Motor_Speed = ci_Left_Motor_Stop;
                   servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
-                  lineFollowing = true;
-                  lineSeeking = false;
-                  lineReaquire++;
-                  reversed = 1;
+                  readLineTrackers();
+                  if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {//check if we got to the line
+                    Serial.println("I see line!");
+                    servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+                    ui_Left_Motor_Speed = ci_Left_Motor_Stop;
+                    servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+                    lineFollowing = true;
+                    lineSeeking = false;
+                    lineReaquire++;
+                    reversed = 1;
+                  }
                 }
               }
               else if (lineReaquire == 1) {
                 ui_Right_Motor_Speed = 1390;
                 ui_Left_Motor_Speed = 1570;
                 if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {//check if we got to the line
-                  servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
-                  ui_Right_Motor_Speed = ci_Right_Motor_Stop;
-                  servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
-                  lineFollowing = true;
-                  lineSeeking = false;
-                  lineReaquire++;
-                  reversed = 1;
+                  readLineTrackers();
+                  if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
+                    servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
+                    ui_Right_Motor_Speed = ci_Right_Motor_Stop;
+                    servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+                    lineFollowing = true;
+                    lineSeeking = false;
+                    lineReaquire++;
+                    reversed = 1;
+                  }
                 }
               }
             }
@@ -371,19 +390,20 @@ void loop()
                       Ping();
                       pingTime += ul_Echo_Time;
                     }
-                    pingTime /= 10;
-                  } while (pingTime > 600);
+                    pingTime /= 5;
+                    //Serial.println(pingTime);
+                  } while (pingTime > 400);
+                  servo_ArmMotor.write(90);
                   servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
                   servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
                   delay(1000);
-                  servo_RightMotor.writeMicroseconds(1450); // turn in place
-                  servo_LeftMotor.writeMicroseconds(1550);
-                  do{
-                    for (int i=0;i<10;i++){
-                      avg_lightSensorVal+=analogRead(ci_Light_Sensor);
-                    }
-                    avg_lightSensorVal/=10;
-                  } while (avg_lightSensorVal < lightVal);
+                  servo_RightMotor.writeMicroseconds(1570); // turn in place
+                  servo_LeftMotor.writeMicroseconds(1370);
+                  do {
+                    avg_lightSensorVal = analogRead(ci_Light_Sensor);
+                    Serial.println(avg_lightSensorVal);
+                  } while (avg_lightSensorVal > 100);
+
                   //now the light is detected
                   servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
                   servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
@@ -392,13 +412,18 @@ void loop()
                   delay(1000);
                   servo_GripMotor.write(ci_Grip_Motor_Closed);
                   delay(1000);
-                  servo_LeftMotor.writeMicroseconds(1550);
-                  servo_RightMotor.writeMicroseconds(1450);
+                  servo_ArmMotor.write(ci_Arm_Servo_Retracted);
+                  servo_LeftMotor.writeMicroseconds(1370);
+                  servo_RightMotor.writeMicroseconds(1370);
+                  delay(500);
+                  servo_LeftMotor.writeMicroseconds(1570);
+                  servo_RightMotor.writeMicroseconds(1370);
                   while (!(ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance))) {
                     readLineTrackers();//keep turning until we get to the drop location
                   }
                   servo_LeftMotor.writeMicroseconds(ci_Left_Motor_Stop);
                   servo_RightMotor.writeMicroseconds(ci_Right_Motor_Stop);
+                  servo_ArmMotor.write(ci_Arm_Servo_Extended);
                   servo_GripMotor.writeMicroseconds(ci_Grip_Motor_Open);//drop the light
                   lineFollowing = false;
                   lineSeeking = false; //give the robot a break, he's done!
@@ -406,14 +431,20 @@ void loop()
               }
             }
             else if (lineDetected[0] && lineDetected[1] && lineDetected[2]) { //when it gets to the end of the small tape
-              if (reversed == -1) {//if we already switched it to reverse mode but the sensors are still over the block, needs to reverse
-                ui_Left_Motor_Speed = 1300;
-                ui_Right_Motor_Speed = 1300;
-              }
-              else {
-                ui_Right_Motor_Speed = ci_Right_Motor_Stop;
-                ui_Left_Motor_Speed = ci_Left_Motor_Stop;
-                reversed = -1;
+              readLineTrackers();
+              lineDetected[0] = (ui_Left_Line_Tracker_Data < (ui_Left_Line_Tracker_Dark - ui_Line_Tracker_Tolerance));
+              lineDetected[1] = (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance));
+              lineDetected[2] = (ui_Right_Line_Tracker_Data < (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance));
+              if (lineDetected[0] && lineDetected[1] && lineDetected[2]) {
+                if (reversed == -1) {//if we already switched it to reverse mode but the sensors are still over the block, needs to reverse
+                  ui_Left_Motor_Speed = 1300;
+                  ui_Right_Motor_Speed = 1300;
+                }
+                else {
+                  ui_Right_Motor_Speed = ci_Right_Motor_Stop;
+                  ui_Left_Motor_Speed = ci_Left_Motor_Stop;
+                  reversed = -1;
+                }
               }
             }
             else if (ui_Middle_Line_Tracker_Data < (ui_Middle_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
@@ -429,22 +460,22 @@ void loop()
             else if (ui_Left_Line_Tracker_Data < (ui_Left_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
               //this means left tracker is on top of line
               if (reversed == -1) {
-                ui_Right_Motor_Speed -= 30;
-                ui_Left_Motor_Speed += 30;
+                ui_Right_Motor_Speed -= 40;
+                ui_Left_Motor_Speed += 40;
               }
               else {
-                ui_Left_Motor_Speed -= 30;
-                ui_Right_Motor_Speed += 30;
+                ui_Left_Motor_Speed -= 40;
+                ui_Right_Motor_Speed += 40;
               }
             }
             else if (ui_Right_Line_Tracker_Data < (ui_Right_Line_Tracker_Dark - ui_Line_Tracker_Tolerance)) {
               if (reversed == -1) {
-                ui_Left_Motor_Speed -= 30;
-                ui_Right_Motor_Speed += 30;
+                ui_Left_Motor_Speed -= 40;
+                ui_Right_Motor_Speed += 40;
               }
               else {
-                ui_Left_Motor_Speed += 30;
-                ui_Right_Motor_Speed -= 30;
+                ui_Left_Motor_Speed += 40;
+                ui_Right_Motor_Speed -= 40;
               }
             }
           }
